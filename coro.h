@@ -33,69 +33,59 @@
 #include <stdlib.h>
 
 // Cleanup callback
-typedef void (*co_destructor_t)(void *);
+typedef void (*co_destructor_t)(char (*)[]);
 
-struct __co_ctx_s {
-  struct __co_ctx_inner_s *__ctx;
-  void *__ptr;
+typedef struct __co_ctx_s {
+  void *__pc;
   co_destructor_t __dtor;
-};
+  struct __co_ctx_s *__nested_ctx;
+  char __user_ctx[];
+} __co_ctx_t;
 
 // Opaque pointer to coroutine context
-typedef struct __co_ctx_s co_ctx_t;
-
-struct __co_ctx_inner_s {
-  co_ctx_t __nested;
-  struct {
-  } __user;
-};
+typedef __co_ctx_t *co_ctx_t;
 
 // Macro to generate the coroutine context parameter
-#define co_ctx_param co_ctx_t *__ctx
+#define co_ctx_param co_ctx_t *__ctx_p
 
-// Macro to generate the coroutine context parameter
-#define co_ctx_dtor_param void *__user_ctx
-
-#define co_new_ctx                                                             \
-  (co_ctx_t) { 0 }
-
-// Macro to define the coroutine context struct
-#define co_ctx struct co_ctx_s
+// Macro to generate the coroutine destructor context parameter
+#define co_ctx_dtor_param char(*__user_ctx)[]
 
 // Macro to initialize the coroutine. It provides the following variables:
 //  - ctx: This coroutines persistent context
 //  - subctx: Context to be used for nested coroutines
-#define co_init                                                                \
-  co_ctx *ctx;                                                                 \
+#define co_init(ctx_type)                                                      \
+  __co_ctx_t *__ctx;                                                           \
+  ctx_type *ctx;                                                               \
   co_ctx_t subctx;                                                             \
                                                                                \
   do {                                                                         \
-    if (__ctx == NULL) {                                                       \
+    if (__ctx_p == NULL) {                                                     \
       abort();                                                                 \
     }                                                                          \
                                                                                \
-    if (__ctx->__ctx == NULL) {                                                \
-      __ctx->__ctx = malloc(sizeof(struct __co_ctx_inner_s) + sizeof(co_ctx)); \
-      __ctx->__ctx->__nested = co_new_ctx;                                     \
-      __ctx->__ptr = &&__begin;                                                \
+    __ctx = *__ctx_p;                                                          \
+    if (__ctx == NULL) {                                                       \
+      __ctx = malloc(sizeof(__co_ctx_t) + sizeof(ctx_type));                   \
+      __ctx->__pc = &&__begin;                                                 \
       __ctx->__dtor = NULL;                                                    \
+      __ctx->__nested_ctx = NULL;                                              \
+      *__ctx_p = __ctx;                                                        \
     }                                                                          \
                                                                                \
-    ctx = (co_ctx *)&__ctx->__ctx->__user;                                     \
-    subctx = __ctx->__ctx->__nested;                                           \
+    ctx = (void *)&__ctx->__user_ctx;                                          \
+    subctx = __ctx->__nested_ctx;                                              \
                                                                                \
-    goto * __ctx->__ptr;                                                       \
+    goto * __ctx->__pc;                                                        \
                                                                                \
   __begin:;                                                                    \
   } while (0)
 
-#define co_init_dtor                                                           \
-  co_ctx *ctx = (co_ctx *)__user_ctx;                                          \
+#define co_init_dtor(ctx_type)                                                 \
+  ctx_type *ctx;                                                               \
                                                                                \
   do {                                                                         \
-    if (ctx == NULL) {                                                         \
-      return;                                                                  \
-    }                                                                          \
+    ctx = (void *)__user_ctx;                                                  \
   } while (0)
 
 // Macro to set the coroutine's destructor. Must be called after co_init
@@ -112,7 +102,7 @@ struct __co_ctx_inner_s {
 #define co_yield(...) __co_yield(__co_label(__COUNTER__), __VA_ARGS__)
 #define __co_yield(label, ...)                                                 \
   do {                                                                         \
-    __ctx->__ptr = &&label;                                                    \
+    __ctx->__pc = &&label;                                                     \
     return __VA_ARGS__;                                                        \
   label:;                                                                      \
   } while (0)
@@ -121,28 +111,30 @@ struct __co_ctx_inner_s {
 // non-void, and freeing its context
 #define co_return(...)                                                         \
   do {                                                                         \
-    co_free(__ctx);                                                            \
+    co_free(__ctx_p);                                                          \
     return __VA_ARGS__;                                                        \
   } while (0)
 
 // Clean up a coroutine's context
-static inline void co_free(co_ctx_t *ctx) {
-  if (ctx == NULL || ctx->__ctx == NULL) {
+static inline void co_free(co_ctx_t *ctx_p) {
+  if (ctx_p == NULL || *ctx_p == NULL) {
     return;
   }
 
-  co_free(&ctx->__ctx->__nested);
+  __co_ctx_t *ctx = *ctx_p;
+
+  co_free(&ctx->__nested_ctx);
 
   if (ctx->__dtor != NULL) {
-    ctx->__dtor(&ctx->__ctx->__user);
+    ctx->__dtor(&ctx->__user_ctx);
   }
 
-  free(ctx->__ctx);
-  ctx->__ctx = NULL;
+  free(ctx);
+  *ctx_p = NULL;
 }
 
-static inline int co_is_running(co_ctx_t *ctx) {
-  return ctx != NULL && ctx->__ctx != NULL;
+static inline int co_is_running(co_ctx_t *ctx_p) {
+  return ctx_p != NULL && *ctx_p != NULL;
 }
 
 #endif // _CORO_H_

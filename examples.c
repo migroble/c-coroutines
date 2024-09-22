@@ -1,16 +1,10 @@
 #include <stdio.h>
-#include <sys/ucontext.h>
 
 #include "coro.h"
 
 int coroutine(co_ctx_param) {
-  // Declare the coroutine's context
-  co_ctx {
-    int i;
-  };
-
-  // Initialize the coroutine
-  co_init;
+  // Initialize the coroutine and define the context data
+  co_init(struct { int i; });
 
   for (ctx->i = 0; ctx->i < 10; ++ctx->i) {
     // Yield values to the caller
@@ -22,9 +16,7 @@ int coroutine(co_ctx_param) {
 }
 
 void void_coroutine(co_ctx_param) {
-  co_ctx { int i; };
-
-  co_init;
+  co_init(struct { int i; });
 
   for (ctx->i = 0; ctx->i < 10; ++ctx->i) {
     printf("void_coroutine: %d\n", ctx->i);
@@ -38,9 +30,7 @@ void void_coroutine(co_ctx_param) {
 }
 
 int parametrized_coroutine(co_ctx_param, int offset) {
-  co_ctx { int i; };
-
-  co_init;
+  co_init(struct { int i; });
 
   for (ctx->i = 0; ctx->i < 10; ++ctx->i) {
     co_yield (ctx->i + offset);
@@ -50,12 +40,9 @@ int parametrized_coroutine(co_ctx_param, int offset) {
 }
 
 void custom_dtor(co_ctx_dtor_param) {
-  // Declare the destructor's context. It must be the same definition as the
-  // coroutine's context
-  co_ctx { void *ptr; };
-
-  // Initialize the destructor's context
-  co_init_dtor;
+  // Initialize the destructor's context. The context definition must be the
+  // same as the coroutine's context
+  co_init_dtor(struct { void *ptr; });
 
   printf("Running custom destructor\n");
 
@@ -63,9 +50,7 @@ void custom_dtor(co_ctx_dtor_param) {
 }
 
 void custom_dtor_coroutine(co_ctx_param) {
-  co_ctx { void *ptr; };
-
-  co_init;
+  co_init(struct { void *ptr; });
 
   ctx->ptr = malloc(1);
 
@@ -76,9 +61,7 @@ void custom_dtor_coroutine(co_ctx_param) {
 }
 
 void nesting_coroutine(co_ctx_param) {
-  co_ctx{};
-
-  co_init;
+  co_init(struct {});
 
   printf("First nested coroutine\n");
   do {
@@ -123,9 +106,7 @@ void state_machine(int *state, int event) {
 
 // Coroutine-based state machine implementation
 void state_machine_coroutine(co_ctx_param, int event) {
-  co_ctx{};
-
-  co_init;
+  co_init(struct {});
 
   printf("State 0\n");
   co_yield ();
@@ -148,7 +129,7 @@ void state_machine_coroutine(co_ctx_param, int event) {
 }
 
 int main(void) {
-  co_ctx_t ctx = co_new_ctx;
+  co_ctx_t ctx = NULL;
 
   // Simplest way to drive a coroutine - in practice you'd likely drive it with
   // an event loop of some sort
