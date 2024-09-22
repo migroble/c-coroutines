@@ -60,6 +60,9 @@ typedef __co_ctx_t *co_ctx_t;
   co_ctx_t subctx;                                                             \
                                                                                \
   do {                                                                         \
+    (void)ctx;                                                                 \
+    (void)subctx;                                                              \
+                                                                               \
     if (__ctx_p == NULL) {                                                     \
       abort();                                                                 \
     }                                                                          \
