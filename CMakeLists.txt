@@ -1,3 +1,6 @@
+# Copyright © 2025 Miguel Robledo
+# SPDX-License-Identifier: MIT
+
 cmake_minimum_required(VERSION 3.14)
 
 project(coro

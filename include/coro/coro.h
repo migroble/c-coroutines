@@ -1,3 +1,6 @@
+// Copyright © 2025 Miguel Robledo
+// SPDX-License-Identifier: MIT
+
 #ifndef CORO_CORO_H_
 #define CORO_CORO_H_
 

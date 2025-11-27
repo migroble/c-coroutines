@@ -1,3 +1,6 @@
+// Copyright © 2025 Miguel Robledo
+// SPDX-License-Identifier: MIT
+
 #include "coro/coro.h"
 
 #include <assert.h>
